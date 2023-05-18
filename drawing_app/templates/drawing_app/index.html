@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+    <head>
+        <title>Drawing Board</title>
+        <style>
+            #drawing-board {
+                border: 1px solid black;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="drawing-board" width="800" height="600"></canvas>
+        <input type="color" id="color-picker">
+        <script>
+            var canvas = document.getElementById('drawing-board');
+            var context = canvas.getContext('2d');
+            var colorPicker = document.getElementById('color-picker');
+            var drawing = false;
+
+            var socket = new WebSocket('ws://' + window.location.host + '/ws/drawing/');
+
+            canvas.addEventListener('mousedown', function(e) {
+                drawing = true;
+                draw(e.offsetX, e.offsetY, false);
+            });
+
+            canvas.addEventListener('mousemove', function(e) {
+                if (drawing === true) {
+                    draw(e.offsetX, e.offsetY, true);
+                }
+            });
+
+            canvas.addEventListener('mouseup', function(e) {
+                if (drawing === true) {
+                    draw(e.offsetX, e.offsetY, true);
+                    drawing = false;
+                }
+            });
+
+            function draw(x, y, isDrawing) {
+                var message = {
+                    x: x,
+                    y: y,
+                    color: colorPicker.value,
+                    is_drawing: isDrawing,
+                };
+                socket.send(JSON.stringify(message));
+            }
+
+            socket.onmessage = function(e) {
+                var data = JSON.parse(e.data);
+                context.strokeStyle = data.color;
+                context.beginPath();
+                context.moveTo(data.x, data.y);
+                if (data.is_drawing) {
+                    context.lineTo(data.x, data.y);
+                } else {
+                    context.moveTo(data.x, data.y);
+                }
+                context.stroke();
+            };
+        </script>
+    </body>
+</html>

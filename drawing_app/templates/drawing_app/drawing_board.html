@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Drawing Board</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    {{ room_name|json_script:"room-name" }}
+
+    <h1>{{ room_name }}'s Drawing Board</h1>
+    <textarea id="chat-log" cols="100" rows="5"></textarea><br>
+    <canvas id="drawing-board" width="800" height="600"></canvas>
+    <script>
+        const roomName = JSON.parse(document.getElementById('room-name').textContent);
+        const socket = new WebSocket(
+        'ws://'
+        + window.location.host
+        + '/ws/drawing_board/'
+        + roomName
+        + '/'
+        );
+
+        const canvas = document.getElementById('drawing-board');
+        const context = canvas.getContext('2d');
+        let drawing = false;
+        let xline = [];
+        let yline = [];
+
+
+
+<!--        socket.onmessage = function(e) {-->
+<!--            document.querySelector('#chat-log').value += ('test' + '\n');-->
+<!--            document.querySelector('#chat-log').value += (e.data + '\n');-->
+<!--            const data = JSON.parse(e.data);-->
+<!--            document.querySelector('#chat-log').value += (data.action + '\n');-->
+<!--            context.lineTo(data.x, data.y);-->
+<!--            context.stroke();-->
+<!--            document.querySelector('#chat-log').value += ('ok' + '\n');-->
+<!--        };-->
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            let xtmp = data.xline[0]
+            let ytmp = data.yline[0]
+
+            context.beginPath();
+            context.moveTo(xtmp, ytmp);
+            for (let i = 1; i < data.xline.length; i++) {
+                context.lineTo(data.xline[i], data.yline[i]);
+            }
+            context.stroke();
+        };
+        socket.onclose = function(e) {
+            console.error('Socket closed unexpectedly');
+        };
+        function getMousePos(canvas, event) {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('mousedown', (event) => {
+            drawing = true;
+            context.beginPath();
+            var mousePos = getMousePos(canvas, event);
+<!--            context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);-->
+            const x = mousePos.x;
+            const y = mousePos.y;
+            context.moveTo(x, y);
+            xline.push(x);
+            yline.push(y);
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (!drawing) return;
+            var mousePos = getMousePos(canvas, event);
+<!--            const x = event.clientX - canvas.offsetLeft;-->
+<!--            const y = event.clientY - canvas.offsetTop;-->
+            const x = mousePos.x;
+            const y = mousePos.y;
+            context.lineTo(x, y);
+            context.stroke();
+            xline.push(x);
+            yline.push(y);
+<!--            socket.send(JSON.stringify({-->
+<!--                'action':'drawing', 'x':x, 'y':y-->
+<!--            }));-->
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            drawing = false;
+            socket.send(JSON.stringify({
+                'action':'drawing', 'xline':xline, 'yline':yline
+            }));
+            xline = [];
+            yline = [];
+        });
+
+
+    </script>
+</body>
+</html>

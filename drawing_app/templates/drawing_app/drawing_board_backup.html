@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Drawing Board</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>{{ room_name }}'s Drawing Board</h1>
+    <canvas id="drawing-board" width="800" height="600"></canvas>
+    <script>
+
+        const socket = io.connect('http://' + document.domain + ':' + location.port + '/ws/drawing_board/{{ room_name }}/');
+        const canvas = document.getElementById('drawing-board');
+        const context = canvas.getContext('2d');
+        let drawing = false;
+
+        canvas.addEventListener('mousedown', (event) => {
+            drawing = true;
+            context.beginPath();
+            context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (!drawing) return;
+            const x = event.clientX - canvas.offsetLeft;
+            const y = event.clientY - canvas.offsetTop;
+            context.lineTo(x, y);
+            context.stroke();
+            socket.emit('drawing', { 'x': x, 'y': y });
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            drawing = false;
+        });
+
+        socket.on('drawing', (data) => {
+            context.lineTo(data.x, data.y);
+            context.stroke();
+        });
+    </script>
+</body>
+</html>
